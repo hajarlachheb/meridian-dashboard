@@ -3,13 +3,11 @@ import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
 from utils.data_loader import compute_optimizer_scenarios
-from utils.charts import format_currency, CHART_LAYOUT, COLORS, HIDE_APP_NAV
+from utils.charts import format_currency, CHART_LAYOUT, COLORS, page_header, setup_page, sidebar_logo
 
-st.set_page_config(page_title="Optimizer | Meridian MMM", page_icon="🎯", layout="wide")
-st.markdown(HIDE_APP_NAV, unsafe_allow_html=True)
-
-if "data" not in st.session_state or st.session_state.data is None:
-    st.switch_page("app.py")
+st.set_page_config(page_title="Optimizer | s360 MMM", page_icon="🎯", layout="wide")
+setup_page()
+sidebar_logo()
 
 data = st.session_state.data
 media = data.get("media_summary")
@@ -54,35 +52,18 @@ def _fallback_optimize(ms, rc, budget):
     })
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  HEADER
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-st.markdown(
-    """<h1 style="background: linear-gradient(135deg, #6366F1, #EC4899);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        font-weight: 800; font-size: 2.2rem; margin-bottom: 0;">
-        Media Optimizer
-    </h1>
-    <p style="color: #94A3B8; margin-top: 0.25rem;">
-        Build scenarios, optimise budget allocation, and forecast sales across channels
-    </p>""",
-    unsafe_allow_html=True,
-)
-st.markdown("---")
+page_header("Media Optimizer", "Build scenarios, optimise budget allocation, and forecast sales across channels")
 
 show_results = st.session_state.get("_opt_show_results", False)
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  STEP 1 — CREATE SCENARIO
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ── STEP 1 — CREATE SCENARIO ──
 
 st.markdown(
     "<div style='display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem;'>"
-    "<div style='width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#6366F1,#8B5CF6);"
-    "display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:0.9rem;'>1</div>"
-    "<span style='color:#E2E8F0;font-size:1.1rem;font-weight:600;'>Create Scenario</span>"
+    "<div style='width:30px;height:30px;border-radius:50%;background:#4A6CF7;"
+    "display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:0.85rem;'>1</div>"
+    "<span style='color:#1E293B;font-size:1.05rem;font-weight:600;'>Create Scenario</span>"
     "</div>",
     unsafe_allow_html=True,
 )
@@ -134,7 +115,7 @@ with cfg_cols[2]:
 with cfg_cols[3]:
     st.markdown("<br>", unsafe_allow_html=True)
     budget_change_pct = (total_budget - current_total) / current_total * 100 if current_total > 0 else 0
-    change_color = "#10B981" if budget_change_pct >= 0 else "#EF4444"
+    change_color = "#48BB78" if budget_change_pct >= 0 else "#F56565"
     st.markdown(
         f"<div style='text-align:center; padding:0.3rem;'>"
         f"<span style='color:#94A3B8; font-size:0.75rem;'>vs. current</span><br>"
@@ -145,9 +126,7 @@ with cfg_cols[3]:
 st.markdown("---")
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  CHANNEL BOUNDARIES
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ── CHANNEL BOUNDARIES ──
 
 is_reference = opt_mode == "Reference scenario"
 
@@ -186,11 +165,11 @@ if not is_reference:
     st.markdown("##### Media investment budget boundaries")
 
     header_cols = st.columns([3, 2, 4, 2, 2])
-    header_cols[0].markdown("<span style='color:#94A3B8; font-size:0.8rem; font-weight:600;'>Channel</span>", unsafe_allow_html=True)
-    header_cols[1].markdown("<span style='color:#94A3B8; font-size:0.8rem; font-weight:600;'>Min ($)</span>", unsafe_allow_html=True)
-    header_cols[2].markdown("<span style='color:#94A3B8; font-size:0.8rem; font-weight:600;'>Budget Range</span>", unsafe_allow_html=True)
-    header_cols[3].markdown("<span style='color:#94A3B8; font-size:0.8rem; font-weight:600;'>Max ($)</span>", unsafe_allow_html=True)
-    header_cols[4].markdown("<span style='color:#94A3B8; font-size:0.8rem; font-weight:600;'>Mode</span>", unsafe_allow_html=True)
+    header_cols[0].markdown("<span style='color:#64748B; font-size:0.8rem; font-weight:600;'>Channel</span>", unsafe_allow_html=True)
+    header_cols[1].markdown("<span style='color:#64748B; font-size:0.8rem; font-weight:600;'>Min ($)</span>", unsafe_allow_html=True)
+    header_cols[2].markdown("<span style='color:#64748B; font-size:0.8rem; font-weight:600;'>Budget Range</span>", unsafe_allow_html=True)
+    header_cols[3].markdown("<span style='color:#64748B; font-size:0.8rem; font-weight:600;'>Max ($)</span>", unsafe_allow_html=True)
+    header_cols[4].markdown("<span style='color:#64748B; font-size:0.8rem; font-weight:600;'>Mode</span>", unsafe_allow_html=True)
 
     channel_bounds = {}
 
@@ -213,8 +192,8 @@ if not is_reference:
         with row[0]:
             st.markdown(
                 f"<div style='padding-top:0.45rem;'>"
-                f"<span style='color:#E2E8F0; font-size:0.9rem;'>{ch}</span><br>"
-                f"<span style='color:#64748B; font-size:0.7rem;'>Current: {format_currency(cs)}</span>"
+                f"<span style='color:#1E293B; font-size:0.9rem;'>{ch}</span><br>"
+                f"<span style='color:#94A3B8; font-size:0.7rem;'>Current: {format_currency(cs)}</span>"
                 f"</div>",
                 unsafe_allow_html=True,
             )
@@ -253,34 +232,32 @@ else:
 st.markdown("---")
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  COMPUTE BUTTON
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ── COMPUTE BUTTON ──
 
 _, btn_col, _ = st.columns([2, 3, 2])
 with btn_col:
     st.markdown(
         "<style>"
         "#opt_run_btn > button {"
-        "  background: linear-gradient(135deg, #10B981, #059669) !important;"
-        "  font-size: 1.1rem !important; padding: 0.75rem 2rem !important;"
-        "  border-radius: 12px !important;"
+        "  background: #4A6CF7 !important; color: white !important;"
+        "  font-size: 1.05rem !important; padding: 0.7rem 2rem !important;"
+        "  border-radius: 10px !important; border: none !important;"
         "}"
         "#opt_run_btn > button:hover {"
-        "  background: linear-gradient(135deg, #059669, #047857) !important;"
-        "  box-shadow: 0 6px 20px rgba(16,185,129,0.35) !important;"
+        "  background: #3B5DE7 !important;"
+        "  box-shadow: 0 4px 14px rgba(74,108,247,0.3) !important;"
         "}"
         "</style>",
         unsafe_allow_html=True,
     )
-    run_clicked = st.button("⚡  Compute Optimisation", use_container_width=True, key="opt_run_btn")
+    run_clicked = st.button("Compute Optimisation", use_container_width=True, key="opt_run_btn")
     if run_clicked:
         st.session_state["_opt_show_results"] = True
         show_results = True
 
 if not show_results:
     st.markdown(
-        "<div style='text-align:center; padding:3rem 0; color:#475569;'>"
+        "<div style='text-align:center; padding:3rem 0; color:#94A3B8;'>"
         "<p style='font-size:1rem;'>Configure your scenario above, then click <b>Compute Optimisation</b> to see results.</p>"
         "</div>",
         unsafe_allow_html=True,
@@ -288,16 +265,14 @@ if not show_results:
     st.stop()
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  STEP 2 — RESULTS
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ── STEP 2 — RESULTS ──
 
 st.markdown("---")
 st.markdown(
     "<div style='display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem;'>"
-    "<div style='width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#10B981,#059669);"
-    "display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:0.9rem;'>2</div>"
-    "<span style='color:#E2E8F0;font-size:1.1rem;font-weight:600;'>Optimisation Results</span>"
+    "<div style='width:30px;height:30px;border-radius:50%;background:#48BB78;"
+    "display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:0.85rem;'>2</div>"
+    "<span style='color:#1E293B;font-size:1.05rem;font-weight:600;'>Optimisation Results</span>"
     "</div>",
     unsafe_allow_html=True,
 )
@@ -340,9 +315,7 @@ else:
     result = _fallback_optimize(media, response, total_budget)
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  KPI ROW
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ── KPI ROW ──
 
 curr_rev_total = float(result["current_revenue"].sum())
 opt_rev_total = float(result["optimized_revenue"].sum())
@@ -363,13 +336,11 @@ k[4].metric("Reallocation", f"{n_up} ↑  {n_dn} ↓")
 st.markdown("---")
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  RESULT TABS
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ── RESULT TABS ──
 
 t_charts, t_table, t_ts, t_rc, t_decomp = st.tabs([
-    "📊 Result Charts", "📋 Result Table", "📅 Weekly Pacing",
-    "🔄 Response Curves", "🧩 Sales Decomposition",
+    "Result Charts", "Result Table", "Weekly Pacing",
+    "Response Curves", "Sales Decomposition",
 ])
 
 with t_charts:
@@ -377,9 +348,9 @@ with t_charts:
     sr = result.sort_values("current_spend", ascending=True)
     fig = go.Figure()
     fig.add_trace(go.Bar(y=sr["channel"], x=sr["current_spend"], name="Current",
-                         orientation="h", marker=dict(color="rgba(99,102,241,0.55)")))
+                         orientation="h", marker=dict(color="rgba(74,108,247,0.55)")))
     fig.add_trace(go.Bar(y=sr["channel"], x=sr["optimized_spend"], name="Optimised",
-                         orientation="h", marker=dict(color="rgba(20,184,166,0.55)")))
+                         orientation="h", marker=dict(color="rgba(72,187,120,0.55)")))
     fig.update_layout(**CHART_LAYOUT, barmode="group",
                       height=max(440, len(channels) * 40), xaxis_title="Spend ($)")
     st.plotly_chart(fig, use_container_width=True)
@@ -390,10 +361,10 @@ with t_charts:
         sr2 = result.sort_values("optimized_roi", ascending=True)
         fig2 = go.Figure()
         fig2.add_trace(go.Bar(y=sr2["channel"], x=sr2["current_roi"], name="Current ROI",
-                              orientation="h", marker=dict(color="rgba(99,102,241,0.6)")))
+                              orientation="h", marker=dict(color="rgba(74,108,247,0.6)")))
         fig2.add_trace(go.Bar(y=sr2["channel"], x=sr2["optimized_roi"], name="Optimised ROI",
-                              orientation="h", marker=dict(color="rgba(20,184,166,0.6)")))
-        fig2.add_vline(x=1.0, line=dict(color="rgba(239,68,68,0.4)", dash="dash"))
+                              orientation="h", marker=dict(color="rgba(72,187,120,0.6)")))
+        fig2.add_vline(x=1.0, line=dict(color="rgba(245,101,101,0.4)", dash="dash"))
         fig2.update_layout(**CHART_LAYOUT, barmode="group",
                            height=max(400, len(channels) * 34), xaxis_title="ROI")
         st.plotly_chart(fig2, use_container_width=True)
@@ -403,9 +374,9 @@ with t_charts:
         fig3 = go.Figure()
         fig3.add_trace(go.Bar(
             x=sc["channel"], y=sc["spend_change"],
-            marker=dict(color=["#10B981" if v > 0 else "#EF4444" for v in sc["spend_change"]], opacity=0.85),
+            marker=dict(color=["#48BB78" if v > 0 else "#F56565" for v in sc["spend_change"]], opacity=0.85),
             text=[f"{v:+,.0f}" for v in sc["spend_change"]], textposition="outside",
-            textfont=dict(size=9, color="#E2E8F0"),
+            textfont=dict(size=9, color="#334155"),
         ))
         fig3.update_layout(**CHART_LAYOUT, height=max(400, len(channels) * 34),
                            yaxis_title="Change ($)", showlegend=False)
@@ -447,9 +418,9 @@ with t_table:
     with ic:
         inc = result[result["spend_change"] > 1].sort_values("spend_change", ascending=False)
         st.markdown(
-            '<div style="background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); '
-            'border-radius:12px; padding:1rem;">'
-            '<h4 style="color:#10B981;margin-top:0;">Increase Budget</h4>',
+            '<div style="background:#F0FFF4; border:1px solid #C6F6D5; '
+            'border-radius:10px; padding:1rem;">'
+            '<h4 style="color:#276749;margin-top:0;">Increase Budget</h4>',
             unsafe_allow_html=True,
         )
         for _, r in inc.iterrows():
@@ -461,9 +432,9 @@ with t_table:
     with dc:
         dec = result[result["spend_change"] < -1].sort_values("spend_change")
         st.markdown(
-            '<div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); '
-            'border-radius:12px; padding:1rem;">'
-            '<h4 style="color:#EF4444;margin-top:0;">Decrease Budget</h4>',
+            '<div style="background:#FFF5F5; border:1px solid #FED7D7; '
+            'border-radius:10px; padding:1rem;">'
+            '<h4 style="color:#9B2C2C;margin-top:0;">Decrease Budget</h4>',
             unsafe_allow_html=True,
         )
         for _, r in dec.iterrows():
@@ -479,7 +450,7 @@ with t_table:
 
 with t_ts:
     st.markdown("#### Weekly Budget Pacing")
-    st.markdown("<p style='color:#94A3B8;'>Budget per channel per week, adjusted for demand seasonality.</p>",
+    st.markdown("<p style='color:#64748B;'>Budget per channel per week, adjusted for demand seasonality.</p>",
                 unsafe_allow_html=True)
 
     n_weeks = st.slider("Planning weeks", 4, 52, 12, key="wpace")
@@ -509,9 +480,9 @@ with t_ts:
     st.markdown("##### Seasonality Index")
     fsi = go.Figure()
     fsi.add_trace(go.Scatter(x=list(range(1, n_weeks + 1)), y=si, mode="lines+markers",
-                             marker=dict(size=5, color="#6366F1"), line=dict(color="#6366F1", width=2),
-                             fill="tozeroy", fillcolor="rgba(99,102,241,0.1)"))
-    fsi.add_hline(y=1.0, line=dict(color="rgba(239,68,68,0.3)", dash="dash"))
+                             marker=dict(size=5, color="#4A6CF7"), line=dict(color="#4A6CF7", width=2),
+                             fill="tozeroy", fillcolor="rgba(74,108,247,0.06)"))
+    fsi.add_hline(y=1.0, line=dict(color="rgba(245,101,101,0.3)", dash="dash"))
     fsi.update_layout(**CHART_LAYOUT, xaxis_title="Week", yaxis_title="Index", height=260)
     st.plotly_chart(fsi, use_container_width=True)
 
@@ -519,7 +490,7 @@ with t_ts:
 with t_rc:
     if response is not None:
         st.markdown("#### Response Curves")
-        st.markdown("<p style='color:#94A3B8;'>Diamond = current spend. Circle = optimised spend.</p>",
+        st.markdown("<p style='color:#64748B;'>Diamond = current spend. Circle = optimised spend.</p>",
                     unsafe_allow_html=True)
         avail = response["channel"].unique().tolist()
         sel = st.multiselect("Channels", avail, default=avail[:4], key="rcsel")
@@ -550,14 +521,14 @@ with t_rc:
 
 with t_decomp:
     st.markdown("#### Forecasted Sales Decomposition")
-    st.markdown("<p style='color:#94A3B8;'>Base (organic) + media-driven revenue for current vs. optimised.</p>",
+    st.markdown("<p style='color:#64748B;'>Base (organic) + media-driven revenue for current vs. optimised.</p>",
                 unsafe_allow_html=True)
     base = float(decomp["baseline"].sum()) if decomp is not None else curr_rev_total * 0.6
 
     labels = ["Base Sales"] + list(result["channel"])
     c_vals = [base] + list(result["current_revenue"])
     o_vals = [base] + list(result["optimized_revenue"])
-    dec_colors = ["#475569"] + COLORS[:len(result)]
+    dec_colors = ["#94A3B8"] + COLORS[:len(result)]
 
     d1, d2 = st.columns(2)
     with d1:
@@ -588,12 +559,12 @@ with t_decomp:
 
     fwf = go.Figure(go.Waterfall(
         x=wf_labels, y=wf_vals, measure=wf_measures,
-        increasing=dict(marker=dict(color="#10B981")),
-        decreasing=dict(marker=dict(color="#EF4444")),
-        totals=dict(marker=dict(color="#6366F1")),
+        increasing=dict(marker=dict(color="#48BB78")),
+        decreasing=dict(marker=dict(color="#F56565")),
+        totals=dict(marker=dict(color="#4A6CF7")),
         connector=dict(line=dict(color="rgba(148,163,184,0.3)")),
         textposition="outside", texttemplate="%{y:$,.0f}",
-        textfont=dict(size=9, color="#E2E8F0"),
+        textfont=dict(size=9, color="#334155"),
     ))
     fwf.update_layout(**CHART_LAYOUT, yaxis_title="Revenue ($)", height=470)
     fwf.update_xaxes(tickangle=-45)

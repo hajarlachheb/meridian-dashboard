@@ -2,35 +2,20 @@ import streamlit as st
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
-from utils.charts import model_fit_chart, CHART_LAYOUT, COLORS, HIDE_APP_NAV
+from utils.charts import model_fit_chart, CHART_LAYOUT, COLORS, page_header, setup_page, sidebar_logo
 
-st.set_page_config(page_title="Data & Model | Meridian MMM", page_icon="🔍", layout="wide")
-st.markdown(HIDE_APP_NAV, unsafe_allow_html=True)
-
-if "data" not in st.session_state or st.session_state.data is None:
-    st.switch_page("app.py")
+st.set_page_config(page_title="Data & Model | s360 MMM", page_icon="🔍", layout="wide")
+setup_page()
+sidebar_logo()
 
 data = st.session_state.data
 
-st.markdown(
-    """
-    <h1 style="background: linear-gradient(135deg, #6366F1, #EC4899);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        font-weight: 800; font-size: 2.2rem; margin-bottom: 0;">
-        Data & Model
-    </h1>
-    <p style="color: #94A3B8; margin-top: 0.25rem;">
-        Transparency into the MMM engine — model diagnostics, data overview, and methodology
-    </p>
-    """,
-    unsafe_allow_html=True,
-)
-st.markdown("---")
+page_header("Data & Model", "Transparency into the MMM engine — model diagnostics, data overview, and methodology")
 
 tab1, tab2, tab3 = st.tabs([
-    "📐 Model Diagnostics",
-    "📂 Data Overview",
-    "📖 Methodology",
+    "Model Diagnostics",
+    "Data Overview",
+    "Methodology",
 ])
 
 with tab1:
@@ -48,36 +33,36 @@ with tab1:
                 display = f"{val:.1%}" if val < 1 else f"{val:.1f}%"
                 if val < 0.1:
                     quality = "Excellent"
-                    color = "#10B981"
+                    color = "#276749"
                 elif val < 0.2:
                     quality = "Good"
-                    color = "#F59E0B"
+                    color = "#975A16"
                 else:
                     quality = "Fair"
-                    color = "#EF4444"
+                    color = "#9B2C2C"
             elif "R-squared" in metric_name or "R2" in metric_name.upper():
                 display = f"{val:.4f}"
                 if val > 0.9:
                     quality = "Excellent"
-                    color = "#10B981"
+                    color = "#276749"
                 elif val > 0.8:
                     quality = "Good"
-                    color = "#F59E0B"
+                    color = "#975A16"
                 else:
                     quality = "Fair"
-                    color = "#EF4444"
+                    color = "#9B2C2C"
             elif "DW" in metric_name.upper():
                 display = f"{val:.3f}"
                 if 1.5 < val < 2.5:
                     quality = "Good"
-                    color = "#10B981"
+                    color = "#276749"
                 else:
                     quality = "Review"
-                    color = "#F59E0B"
+                    color = "#975A16"
             else:
                 display = f"{val:.4f}"
                 quality = ""
-                color = "#94A3B8"
+                color = "#64748B"
 
             with cols[i]:
                 st.metric(metric_name, display)
@@ -106,11 +91,11 @@ with tab1:
                     x=decomp["date"],
                     y=residuals,
                     mode="lines+markers",
-                    marker=dict(size=4, color="#6366F1"),
-                    line=dict(color="#6366F1", width=1),
+                    marker=dict(size=4, color="#4A6CF7"),
+                    line=dict(color="#4A6CF7", width=1),
                     hovertemplate="%{x|%b %d, %Y}<br>Residual: $%{y:,.0f}<extra></extra>",
                 ))
-                fig_res.add_hline(y=0, line=dict(color="rgba(239,68,68,0.5)", dash="dash"))
+                fig_res.add_hline(y=0, line=dict(color="rgba(245,101,101,0.5)", dash="dash"))
                 fig_res.update_layout(
                     **CHART_LAYOUT,
                     title="Residuals Over Time",
@@ -125,7 +110,8 @@ with tab1:
                 fig_hist.add_trace(go.Histogram(
                     x=residuals,
                     nbinsx=30,
-                    marker=dict(color="#6366F1", opacity=0.8, line=dict(width=0.5, color="white")),
+                    marker=dict(color="#4A6CF7", opacity=0.75,
+                                line=dict(width=0.5, color="white")),
                     hovertemplate="Range: $%{x:,.0f}<br>Count: %{y}<extra></extra>",
                 ))
                 fig_hist.update_layout(
@@ -194,8 +180,8 @@ with tab3:
 
     st.markdown(
         """
-        <div style="background: rgba(99,102,241,0.05); border: 1px solid rgba(99,102,241,0.15);
-            border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem;">
+        <div style="background:#F8F9FC; border:1px solid #E2E8F0;
+            border-radius:10px; padding:1.5rem; margin-bottom:1rem;">
 
         **Google Meridian** is an open-source Bayesian Marketing Mix Model (MMM) framework
         designed for modern marketers. Key methodological features:
@@ -238,9 +224,9 @@ with tab3:
 
     st.markdown("---")
     st.markdown(
-        "<p style='color:#64748B; font-size:0.85rem; text-align:center;'>"
+        "<p style='color:#94A3B8; font-size:0.85rem; text-align:center;'>"
         "Learn more at "
-        "<a href='https://developers.google.com/meridian' style='color:#6366F1;'>"
+        "<a href='https://developers.google.com/meridian' style='color:#4A6CF7;'>"
         "developers.google.com/meridian</a>"
         "</p>",
         unsafe_allow_html=True,

@@ -2,31 +2,16 @@ import streamlit as st
 import plotly.graph_objects as go
 from utils.charts import (
     format_currency, format_number, model_fit_chart, contribution_pie_chart,
-    CHART_LAYOUT, COLORS, HIDE_APP_NAV
+    CHART_LAYOUT, COLORS, page_header, setup_page, sidebar_logo,
 )
 
-st.set_page_config(page_title="Home | Meridian MMM", page_icon="🏠", layout="wide")
-st.markdown(HIDE_APP_NAV, unsafe_allow_html=True)
-
-if "data" not in st.session_state or st.session_state.data is None:
-    st.switch_page("app.py")
+st.set_page_config(page_title="Home | s360 MMM", page_icon="🏠", layout="wide")
+setup_page()
+sidebar_logo()
 
 data = st.session_state.data
 
-st.markdown(
-    """
-    <h1 style="background: linear-gradient(135deg, #6366F1, #EC4899);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        font-weight: 800; font-size: 2.2rem; margin-bottom: 0;">
-        Meridian MMM — Overview
-    </h1>
-    <p style="color: #94A3B8; margin-top: 0.25rem;">
-        High-level summary of your marketing mix model results
-    </p>
-    """,
-    unsafe_allow_html=True,
-)
-st.markdown("---")
+page_header("Executive Overview", "High-level summary of your marketing mix model results")
 
 media = data.get("media_summary")
 fit_data = data.get("model_fit")
@@ -39,23 +24,25 @@ if media is not None:
     top_channel = media.loc[media["roi"].idxmax(), "channel"]
     top_roi = media["roi"].max()
 
-    col1, col2, col3, col4, col5 = st.columns(5)
-
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Total Media Spend", format_currency(total_spend))
+        st.metric("Total Revenue", format_currency(total_spend + total_revenue))
     with col2:
-        st.metric("Incremental Revenue", format_currency(total_revenue))
+        st.metric("Media Contribution", format_currency(total_revenue))
     with col3:
-        st.metric("Overall ROI", f"{avg_roi:.2f}x")
+        st.metric("Blended ROAS", f"{avg_roi:.2f}x")
     with col4:
-        st.metric("Top Channel", top_channel)
-    with col5:
-        st.metric("Best ROI", f"{top_roi:.1f}x")
+        r2_val = 0
+        if fit_data is not None:
+            r2_row = fit_data[fit_data["metric"].str.contains("R-squared|R2", case=False, na=False)]
+            if len(r2_row) > 0:
+                r2_val = r2_row["value"].iloc[0]
+        st.metric("Model R²", f"{r2_val:.3f}")
 
-    st.markdown("---")
+    st.markdown("")
 
 if fit_data is not None:
-    st.subheader("Model Fit Statistics")
+    st.markdown("#### Model Fit Statistics")
     cols = st.columns(len(fit_data))
     for i, (_, row) in enumerate(fit_data.iterrows()):
         metric_name = row["metric"]
@@ -72,7 +59,7 @@ if fit_data is not None:
     st.markdown("---")
 
 if decomp is not None:
-    st.subheader("Model Fit: Predicted vs. Actual")
+    st.markdown("#### Model Fit: Predicted vs. Actual")
     fig = model_fit_chart(decomp)
     st.plotly_chart(fig, use_container_width=True)
     st.markdown("---")
@@ -81,13 +68,12 @@ if media is not None and decomp is not None:
     col_left, col_right = st.columns(2)
 
     with col_left:
-        st.subheader("Revenue Contribution")
+        st.markdown("#### Revenue Contribution")
         fig = contribution_pie_chart(media, decomp)
         st.plotly_chart(fig, use_container_width=True)
 
     with col_right:
-        st.subheader("Quick Channel Summary")
-
+        st.markdown("#### Channel ROI Ranking")
         sorted_media = media.sort_values("roi", ascending=False)
 
         fig = go.Figure()
@@ -101,13 +87,12 @@ if media is not None and decomp is not None:
             ),
             text=[f"{v:.1f}x" for v in sorted_media["roi"]],
             textposition="outside",
-            textfont=dict(color="#E2E8F0", size=11),
+            textfont=dict(color="#334155", size=11),
             hovertemplate="<b>%{y}</b><br>ROI: %{x:.2f}x<extra></extra>",
         ))
 
         fig.update_layout(
             **CHART_LAYOUT,
-            title="Channel ROI Ranking",
             height=500,
             showlegend=False,
             xaxis_title="ROI",
@@ -116,7 +101,7 @@ if media is not None and decomp is not None:
 
 if media is not None:
     st.markdown("---")
-    st.subheader("Key Recommendations")
+    st.markdown("#### Key Recommendations")
 
     high_roi_low_spend = media[
         (media["roi"] > media["roi"].median()) &
@@ -131,9 +116,9 @@ if media is not None:
 
     with rec_cols[0]:
         st.markdown(
-            """<div style="background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3);
-                border-radius: 12px; padding: 1.2rem;">
-                <h4 style="color: #10B981; margin-top: 0;">🔼 Consider Increasing</h4>""",
+            """<div style="background:#F0FFF4; border:1px solid #C6F6D5;
+                border-radius:10px; padding:1.2rem;">
+                <h4 style="color:#276749; margin-top:0;">🔼 Consider Increasing</h4>""",
             unsafe_allow_html=True,
         )
         if len(high_roi_low_spend) > 0:
@@ -148,9 +133,9 @@ if media is not None:
 
     with rec_cols[1]:
         st.markdown(
-            """<div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
-                border-radius: 12px; padding: 1.2rem;">
-                <h4 style="color: #EF4444; margin-top: 0;">🔽 Consider Reducing</h4>""",
+            """<div style="background:#FFF5F5; border:1px solid #FED7D7;
+                border-radius:10px; padding:1.2rem;">
+                <h4 style="color:#9B2C2C; margin-top:0;">🔽 Consider Reducing</h4>""",
             unsafe_allow_html=True,
         )
         if len(low_roi_high_spend) > 0:

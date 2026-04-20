@@ -4,31 +4,16 @@ import pandas as pd
 import numpy as np
 from utils.charts import (
     roi_bar_chart, marginal_roi_chart, response_curve_chart,
-    format_currency, CHART_LAYOUT, COLORS, HIDE_APP_NAV
+    format_currency, CHART_LAYOUT, COLORS, page_header, setup_page, sidebar_logo,
 )
 
-st.set_page_config(page_title="Performance | Meridian MMM", page_icon="📈", layout="wide")
-st.markdown(HIDE_APP_NAV, unsafe_allow_html=True)
-
-if "data" not in st.session_state or st.session_state.data is None:
-    st.switch_page("app.py")
+st.set_page_config(page_title="Performance | s360 MMM", page_icon="📈", layout="wide")
+setup_page()
+sidebar_logo()
 
 data = st.session_state.data
 
-st.markdown(
-    """
-    <h1 style="background: linear-gradient(135deg, #6366F1, #EC4899);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        font-weight: 800; font-size: 2.2rem; margin-bottom: 0;">
-        Performance
-    </h1>
-    <p style="color: #94A3B8; margin-top: 0.25rem;">
-        Deep-dive into channel-level ROI, marginal returns, and saturation curves
-    </p>
-    """,
-    unsafe_allow_html=True,
-)
-st.markdown("---")
+page_header("Performance", "Deep-dive into channel-level ROI, marginal returns, and saturation curves")
 
 media = data.get("media_summary")
 if media is None:
@@ -69,16 +54,16 @@ if media is not None:
     st.markdown("---")
 
     tab1, tab2, tab3, tab4 = st.tabs([
-        "📊 ROI Analysis",
-        "📉 Marginal ROI",
-        "🔄 Response Curves",
-        "📡 Saturation Analysis",
+        "ROI Analysis",
+        "Marginal ROI",
+        "Response Curves",
+        "Saturation Analysis",
     ])
 
     with tab1:
         st.markdown("#### Return on Investment by Channel")
         st.markdown(
-            "<p style='color:#94A3B8;'>Compare ROI across channels with confidence intervals. "
+            "<p style='color:#64748B;'>Compare ROI across channels with confidence intervals. "
             "Higher ROI means more revenue per dollar spent.</p>",
             unsafe_allow_html=True,
         )
@@ -115,7 +100,7 @@ if media is not None:
                 ),
             ))
 
-        fig2.add_vline(x=1, line=dict(color="rgba(239,68,68,0.4)", width=1.5, dash="dash"))
+        fig2.add_vline(x=1, line=dict(color="rgba(245,101,101,0.4)", width=1.5, dash="dash"))
 
         fig2.update_layout(
             **CHART_LAYOUT,
@@ -131,7 +116,7 @@ if media is not None:
         if "marginal_roi" in media.columns:
             st.markdown("#### Marginal Return on Investment")
             st.markdown(
-                "<p style='color:#94A3B8;'>Marginal ROI shows the return from the "
+                "<p style='color:#64748B;'>Marginal ROI shows the return from the "
                 "<em>next dollar</em> spent. Channels with mROI &gt; 1 still have room to grow.</p>",
                 unsafe_allow_html=True,
             )
@@ -149,17 +134,17 @@ if media is not None:
                 x=sorted_m["channel"],
                 y=sorted_m["roi"],
                 name="Average ROI",
-                marker=dict(color="#6366F1", opacity=0.8),
+                marker=dict(color="#4A6CF7", opacity=0.8),
             ))
 
             fig3.add_trace(go.Bar(
                 x=sorted_m["channel"],
                 y=sorted_m["marginal_roi"],
                 name="Marginal ROI",
-                marker=dict(color="#14B8A6", opacity=0.8),
+                marker=dict(color="#48BB78", opacity=0.8),
             ))
 
-            fig3.add_hline(y=1, line=dict(color="rgba(239,68,68,0.5)", dash="dash"),
+            fig3.add_hline(y=1, line=dict(color="rgba(245,101,101,0.5)", dash="dash"),
                            annotation_text="Break-even", annotation_position="top right")
 
             fig3.update_layout(
@@ -173,7 +158,6 @@ if media is not None:
             st.plotly_chart(fig3, use_container_width=True)
 
             st.markdown("---")
-
             st.markdown("#### Channel Prioritization Matrix")
 
             growth = media[media["marginal_roi"] > 1].sort_values("marginal_roi", ascending=False)
@@ -183,10 +167,10 @@ if media is not None:
             p_cols = st.columns(3)
             with p_cols[0]:
                 st.markdown(
-                    '<div style="background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); '
-                    'border-radius:12px; padding:1rem;">'
-                    '<h4 style="color:#10B981;margin-top:0;">Scale Up</h4>'
-                    '<p style="color:#94A3B8;font-size:0.85rem;">mROI &gt; 1 — room to grow</p>',
+                    '<div style="background:#F0FFF4; border:1px solid #C6F6D5; '
+                    'border-radius:10px; padding:1rem;">'
+                    '<h4 style="color:#276749;margin-top:0;">Scale Up</h4>'
+                    '<p style="color:#64748B;font-size:0.85rem;">mROI &gt; 1 — room to grow</p>',
                     unsafe_allow_html=True,
                 )
                 for _, r in growth.iterrows():
@@ -195,10 +179,10 @@ if media is not None:
 
             with p_cols[1]:
                 st.markdown(
-                    '<div style="background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); '
-                    'border-radius:12px; padding:1rem;">'
-                    '<h4 style="color:#F59E0B;margin-top:0;">Maintain</h4>'
-                    '<p style="color:#94A3B8;font-size:0.85rem;">ROI &gt; 1, mROI &le; 1 — saturated</p>',
+                    '<div style="background:#FFFFF0; border:1px solid #FEFCBF; '
+                    'border-radius:10px; padding:1rem;">'
+                    '<h4 style="color:#975A16;margin-top:0;">Maintain</h4>'
+                    '<p style="color:#64748B;font-size:0.85rem;">ROI &gt; 1, mROI &le; 1 — saturated</p>',
                     unsafe_allow_html=True,
                 )
                 for _, r in maintain.iterrows():
@@ -207,10 +191,10 @@ if media is not None:
 
             with p_cols[2]:
                 st.markdown(
-                    '<div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); '
-                    'border-radius:12px; padding:1rem;">'
-                    '<h4 style="color:#EF4444;margin-top:0;">Review / Reduce</h4>'
-                    '<p style="color:#94A3B8;font-size:0.85rem;">ROI &le; 1 — underperforming</p>',
+                    '<div style="background:#FFF5F5; border:1px solid #FED7D7; '
+                    'border-radius:10px; padding:1rem;">'
+                    '<h4 style="color:#9B2C2C;margin-top:0;">Review / Reduce</h4>'
+                    '<p style="color:#64748B;font-size:0.85rem;">ROI &le; 1 — underperforming</p>',
                     unsafe_allow_html=True,
                 )
                 for _, r in review.iterrows():
@@ -226,7 +210,7 @@ if media is not None:
         if response is not None:
             st.markdown("#### Response Curves (Diminishing Returns)")
             st.markdown(
-                "<p style='color:#94A3B8;'>Response curves show how incremental revenue changes "
+                "<p style='color:#64748B;'>Response curves show how incremental revenue changes "
                 "as spend increases. The diamond marker shows your current spend level.</p>",
                 unsafe_allow_html=True,
             )
@@ -255,8 +239,8 @@ if media is not None:
                     y=ch_data["incremental_revenue"],
                     mode="lines",
                     fill="tozeroy",
-                    fillcolor="rgba(99,102,241,0.15)",
-                    line=dict(color="#6366F1", width=3),
+                    fillcolor="rgba(74,108,247,0.08)",
+                    line=dict(color="#4A6CF7", width=3),
                     hovertemplate="Spend: $%{x:,.0f}<br>Revenue: $%{y:,.0f}<extra></extra>",
                 ))
 
@@ -267,15 +251,15 @@ if media is not None:
                     x=[current_spend],
                     y=[current_rev],
                     mode="markers+text",
-                    marker=dict(size=16, color="#EC4899", symbol="diamond",
+                    marker=dict(size=16, color="#F56565", symbol="diamond",
                                 line=dict(width=2, color="white")),
                     text=["Current"],
                     textposition="top center",
-                    textfont=dict(color="#EC4899", size=12, family="Inter"),
+                    textfont=dict(color="#F56565", size=12, family="Inter"),
                     showlegend=False,
                 ))
 
-                fig_single.add_vline(x=current_spend, line=dict(color="rgba(236,72,153,0.3)", dash="dot"))
+                fig_single.add_vline(x=current_spend, line=dict(color="rgba(245,101,101,0.25)", dash="dot"))
 
                 fig_single.update_layout(
                     **CHART_LAYOUT,
@@ -299,13 +283,13 @@ if media is not None:
                     st.metric("Saturation Level", f"{saturation_pct:.0f}%")
 
         else:
-            st.info("Response curve data not available. Upload a sheet named 'response_curves'.")
+            st.info("Response curve data not available.")
 
     with tab4:
         if response is not None:
             st.markdown("#### Saturation Analysis")
             st.markdown(
-                "<p style='color:#94A3B8;'>How close each channel is to its saturation point. "
+                "<p style='color:#64748B;'>How close each channel is to its saturation point. "
                 "Channels near 100% have little room for incremental gains.</p>",
                 unsafe_allow_html=True,
             )
@@ -330,11 +314,11 @@ if media is not None:
                 bar_colors = []
                 for s in sat_df["saturation_pct"]:
                     if s > 80:
-                        bar_colors.append("#EF4444")
+                        bar_colors.append("#F56565")
                     elif s > 60:
-                        bar_colors.append("#F59E0B")
+                        bar_colors.append("#ED8936")
                     else:
-                        bar_colors.append("#10B981")
+                        bar_colors.append("#48BB78")
 
                 fig_sat.add_trace(go.Bar(
                     y=sat_df["channel"],
@@ -343,7 +327,7 @@ if media is not None:
                     marker=dict(color=bar_colors, opacity=0.85),
                     text=[f"{v:.0f}%" for v in sat_df["saturation_pct"]],
                     textposition="outside",
-                    textfont=dict(color="#E2E8F0", size=11),
+                    textfont=dict(color="#334155", size=11),
                     hovertemplate="<b>%{y}</b><br>Saturation: %{x:.1f}%<extra></extra>",
                 ))
 
@@ -366,4 +350,4 @@ if media is not None:
             st.info("No saturation or frequency data available.")
 
 else:
-    st.info("No performance data available. Please upload an Excel file with a 'media_summary' or 'roi_summary' sheet.")
+    st.info("No performance data available. Please upload an Excel file.")

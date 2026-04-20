@@ -4,31 +4,16 @@ import numpy as np
 from utils.charts import (
     sales_decomposition_chart, roi_bar_chart, roi_bubble_chart,
     spend_vs_revenue_chart, contribution_pie_chart, format_currency,
-    CHART_LAYOUT, COLORS, HIDE_APP_NAV
+    CHART_LAYOUT, COLORS, page_header, setup_page, sidebar_logo,
 )
 
-st.set_page_config(page_title="Dashboard | Meridian MMM", page_icon="📊", layout="wide")
-st.markdown(HIDE_APP_NAV, unsafe_allow_html=True)
-
-if "data" not in st.session_state or st.session_state.data is None:
-    st.switch_page("app.py")
+st.set_page_config(page_title="Dashboard | s360 MMM", page_icon="📊", layout="wide")
+setup_page()
+sidebar_logo()
 
 data = st.session_state.data
 
-st.markdown(
-    """
-    <h1 style="background: linear-gradient(135deg, #6366F1, #EC4899);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        font-weight: 800; font-size: 2.2rem; margin-bottom: 0;">
-        Marketing Dashboard
-    </h1>
-    <p style="color: #94A3B8; margin-top: 0.25rem;">
-        Analyze how each marketing activity contributes to your revenue
-    </p>
-    """,
-    unsafe_allow_html=True,
-)
-st.markdown("---")
+page_header("Marketing Dashboard", "Analyze how each marketing activity contributes to your revenue")
 
 media = data.get("media_summary")
 decomp = data.get("weekly_decomposition")
@@ -67,17 +52,17 @@ if media is not None:
         filtered_decomp = decomp
 
     tab1, tab2, tab3, tab4 = st.tabs([
-        "📈 Sales Decomposition",
-        "💰 ROI Analysis",
-        "🧩 Contribution",
-        "📋 Data Table",
+        "Sales Decomposition",
+        "ROI Analysis",
+        "Contribution",
+        "Data Table",
     ])
 
     with tab1:
         if filtered_decomp is not None:
             st.markdown("#### Revenue Decomposition Over Time")
             st.markdown(
-                "<p style='color:#94A3B8;'>How much of your revenue is driven by "
+                "<p style='color:#64748B;'>How much of your revenue is driven by "
                 "baseline, seasonality, promotions, and each marketing channel.</p>",
                 unsafe_allow_html=True,
             )
@@ -100,7 +85,7 @@ if media is not None:
                     other_pct = 100 - baseline_pct - media_pct
                     st.metric("Other Factors", f"{max(other_pct, 0):.1f}%")
         else:
-            st.info("Weekly decomposition data not available. Upload a sheet named 'weekly_decomposition'.")
+            st.info("Weekly decomposition data not available.")
 
     with tab2:
         st.markdown("#### Return on Investment Analysis")
@@ -114,11 +99,9 @@ if media is not None:
         if view_mode == "Bar Chart":
             fig = roi_bar_chart(filtered_media)
             st.plotly_chart(fig, use_container_width=True)
-
         elif view_mode == "Bubble Chart":
             fig = roi_bubble_chart(filtered_media)
             st.plotly_chart(fig, use_container_width=True)
-
         else:
             fig = spend_vs_revenue_chart(filtered_media)
             st.plotly_chart(fig, use_container_width=True)
@@ -145,12 +128,12 @@ if media is not None:
                     marker=dict(
                         size=row["pct_spend"] * 3 + 10,
                         color=color,
-                        opacity=0.8,
+                        opacity=0.75,
                         line=dict(width=1, color="white"),
                     ),
                     text=[row["channel"]],
                     textposition="top center",
-                    textfont=dict(size=9, color="#E2E8F0"),
+                    textfont=dict(size=9, color="#334155"),
                     name=row["channel"],
                     hovertemplate=(
                         f"<b>{row['channel']}</b><br>"
@@ -160,8 +143,8 @@ if media is not None:
                     ),
                 ))
 
-            fig.add_hline(y=1, line=dict(color="rgba(239,68,68,0.4)", dash="dash"))
-            fig.add_vline(x=1, line=dict(color="rgba(239,68,68,0.4)", dash="dash"))
+            fig.add_hline(y=1, line=dict(color="rgba(245,101,101,0.4)", dash="dash"))
+            fig.add_vline(x=1, line=dict(color="rgba(245,101,101,0.4)", dash="dash"))
 
             fig.update_layout(
                 **CHART_LAYOUT,
@@ -176,17 +159,6 @@ if media is not None:
     with tab4:
         st.markdown("#### Channel Performance Data")
         display_df = filtered_media.copy()
-
-        format_map = {
-            "spend": "${:,.0f}",
-            "incremental_revenue": "${:,.0f}",
-            "roi": "{:.2f}x",
-            "marginal_roi": "{:.2f}x",
-            "pct_spend": "{:.1f}%",
-            "pct_incremental_revenue": "{:.1f}%",
-            "effectiveness": "{:.1f}%",
-            "cpa": "${:,.2f}",
-        }
 
         rename_map = {
             "channel": "Channel",
