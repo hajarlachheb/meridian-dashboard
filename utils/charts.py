@@ -176,32 +176,26 @@ hr {
 
 
 def page_header(title: str, subtitle: str = ""):
-    """Render a consistent page header with Export button."""
+    """Render a consistent page header with logo on top and Export button."""
     logo_b64 = get_logo_base64()
-    logo_html = (
-        f'<img src="data:image/png;base64,{logo_b64}" '
-        f'style="height:28px; margin-right:0.75rem;" />'
-        if logo_b64 else ""
-    )
 
-    right_btns = ""
-    st.markdown(
-        f"""<div style="display:flex; align-items:center; justify-content:space-between;
-                margin-bottom:0.25rem;">
-            <div style="display:flex; align-items:center;">
-                {logo_html}
-                <div>
-                    <h1 style="font-size:1.75rem; font-weight:700; color:#1E293B;
-                        margin:0; line-height:1.2;">{title}</h1>
-                    {'<p style="color:#64748B; font-size:0.9rem; margin:0.15rem 0 0;">' + subtitle + '</p>' if subtitle else ''}
-                </div>
-            </div>
-        </div>""",
-        unsafe_allow_html=True,
-    )
+    if logo_b64:
+        st.markdown(
+            f'<div style="margin-bottom:1.25rem;">'
+            f'<img src="data:image/png;base64,{logo_b64}" style="height:36px;" />'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
-    _, rc = st.columns([5, 1])
-    with rc:
+    hdr_left, hdr_right = st.columns([5, 1])
+    with hdr_left:
+        st.markdown(
+            f'<h1 style="font-size:1.75rem; font-weight:700; color:#1E293B; '
+            f'margin:0; line-height:1.2;">{title}</h1>'
+            + (f'<p style="color:#64748B; font-size:0.9rem; margin:0.15rem 0 0;">{subtitle}</p>' if subtitle else ''),
+            unsafe_allow_html=True,
+        )
+    with hdr_right:
         if st.button("Export PDF", key=f"_pdf_{title}", use_container_width=True):
             st.markdown(
                 "<script>window.print();</script>",
