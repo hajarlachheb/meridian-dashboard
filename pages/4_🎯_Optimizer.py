@@ -28,6 +28,16 @@ st.markdown(
       .stButton > button[kind="primary"]:hover { background:#E53E3E; border-color:#E53E3E; }
       /* Scenario tab buttons */
       .sc-tab-row .stButton > button { border-radius:8px 8px 0 0; border-bottom:none; }
+      /* Compact quick-select pill buttons */
+      .qs-row .stButton > button {
+          padding: 0.25rem 0.15rem !important;
+          font-size: 0.72rem !important;
+          line-height: 1.1 !important;
+          white-space: nowrap !important;
+          min-height: 0 !important;
+          border-radius: 6px !important;
+      }
+      .qs-row [data-testid="column"] { padding: 0 2px !important; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -356,13 +366,15 @@ with left_col:
                     unsafe_allow_html=True)
         st.caption("Apply a quick range to all channels:")
 
-        pct_opts = [("Fix", 0), ("±5%", 5), ("±10%", 10), ("±20%", 20), ("±30%", 30), ("Full", 100)]
-        qc = st.columns(len(pct_opts))
+        pct_opts = [("Fix", 0), ("5%", 5), ("10%", 10), ("20%", 20), ("30%", 30), ("Full", 100)]
+        st.markdown('<div class="qs-row">', unsafe_allow_html=True)
+        qc = st.columns(len(pct_opts), gap="small")
         for i, (lbl, pv) in enumerate(pct_opts):
             with qc[i]:
                 if st.button(lbl, key=f"_lq_{pv}", use_container_width=True):
                     st.session_state["_apply_pct"] = pv
                     st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
         cpc1, cpc2 = st.columns([2, 1])
         with cpc1:
