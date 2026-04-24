@@ -10,6 +10,29 @@ st.set_page_config(page_title="Optimizer | s360 MMM", page_icon="🎯", layout="
 setup_page()
 sidebar_logo()
 
+# ── Scoped styling for a cleaner, denser left panel ──
+st.markdown(
+    """
+    <style>
+      /* Reduce vertical gaps inside the config panel */
+      div[data-testid="stVerticalBlockBorderWrapper"] .stMarkdown { margin-bottom: 0.15rem; }
+      div[data-testid="stVerticalBlockBorderWrapper"] hr { margin: 0.5rem 0; }
+      /* Compact section label */
+      .cfg-label { color:#64748B; font-size:0.72rem; font-weight:600;
+                   text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.25rem; }
+      .cfg-value { color:#1E293B; font-size:0.9rem; font-weight:500; }
+      /* Slider labels smaller */
+      div[data-testid="stVerticalBlockBorderWrapper"] .stSlider label { font-size:0.82rem !important; }
+      /* Primary optimise button */
+      .stButton > button[kind="primary"] { background:#F56565; border-color:#F56565; }
+      .stButton > button[kind="primary"]:hover { background:#E53E3E; border-color:#E53E3E; }
+      /* Scenario tab buttons */
+      .sc-tab-row .stButton > button { border-radius:8px 8px 0 0; border-bottom:none; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 data = st.session_state.data
 media = data.get("media_summary")
 response = data.get("response_curves")
@@ -24,9 +47,9 @@ if media is None:
 channels = media["channel"].tolist()
 current_spend = media["spend"].values.astype(float)
 current_total = float(current_spend.sum())
+spend_by_channel = {c: float(s) for c, s in zip(channels, current_spend)}
 
-spec_min_map = {}
-spec_max_map = {}
+spec_min_map, spec_max_map = {}, {}
 if budget_specs is not None:
     specs_all = (
         budget_specs[budget_specs["Analysis Period"] == "ALL"]
@@ -50,15 +73,34 @@ def _wl(d):
     return f"w{d.isocalendar()[1]:02d} {d.year}"
 
 
+def _slider_range(ch, pct):
+    """Return (lo, hi, min, max) bounds for a channel slider at the given ± pct."""
+    cs = spend_by_channel[ch]
+    abs_max = float(spec_max_map.get(ch, cs * 3))
+    slider_max = max(abs_max, cs * 2, 1.0)
+    if pct == 0:
+        lo, hi = cs, cs
+    elif pct >= 100:
+        lo = float(spec_min_map.get(ch, 0))
+        hi = abs_max
+    else:
+        lo = max(cs * (1 - pct / 100), 0.0)
+        hi = min(cs * (1 + pct / 100), slider_max)
+    return float(lo), float(hi), 0.0, float(slider_max)
+
+
 if "_opt_scenarios" not in st.session_state:
     st.session_state["_opt_scenarios"] = []
 if "_opt_active_idx" not in st.session_state:
     st.session_state["_opt_active_idx"] = None
 
 
+# ══════════════════════════════════════════════════════════════
+#  OPTIMIZATION ENGINE
+# ══════════════════════════════════════════════════════════════
+
 def _run_optimization(sc):
-    ms = media
-    rc = response
+    ms, rc = media, response
     total_budget = sc["budget"]
     sel_ch = sc.get("selected_channels", channels)
     fms = ms[ms["channel"].isin(sel_ch)].reset_index(drop=True)
@@ -102,7 +144,7 @@ def _run_optimization(sc):
             return compute_optimizer_scenarios(fms, frc, total_budget)
 
     mroi = fms["marginal_roi"].values if "marginal_roi" in fms.columns else fms["roi"].values
-    mn = mroi / mroi.sum()
+    mn = mroi / mroi.sum() if mroi.sum() > 0 else np.ones(len(mroi)) / len(mroi)
     os_ = total_budget * mn
     return pd.DataFrame({
         "channel": fms["channel"], "current_spend": fms["spend"],
@@ -124,30 +166,32 @@ def _new_scenario_dialog():
     existing = st.session_state.get("_opt_scenarios", [])
     copy_src = st.session_state.get("_opt_copy_from")
 
-    st.markdown("##### Scenario Identity")
-    c1, c2 = st.columns(2)
+    c1, c2 = st.columns([2, 1])
     with c1:
-        dn = f"Scenario {len(existing) + 1}"
-        if copy_src:
-            dn = f"{copy_src['name']} (copy)"
-        name = st.text_input("Name", value=dn, key="_dn")
+        dn = f"{copy_src['name']} (copy)" if copy_src else f"Scenario {len(existing) + 1}"
+        name = st.text_input("Scenario name", value=dn, key="_dn")
     with c2:
-        stype = st.radio("Type", ["New scenario", "Copy own scenario", "Copy public scenario"],
-                         horizontal=True, key="_dt")
-    if stype == "Copy own scenario" and len(existing) > 0 and copy_src is None:
+        stype = st.radio(
+            "Type",
+            ["New", "Copy own", "Copy public"],
+            horizontal=True, key="_dt",
+            index=1 if copy_src else 0,
+        )
+    if stype == "Copy own" and len(existing) > 0 and copy_src is None:
         si = st.selectbox("Copy from", range(len(existing)),
                           format_func=lambda i: existing[i]["name"], key="_dcs")
         copy_src = existing[si]
-    elif stype == "Copy public scenario":
-        st.info("No public scenarios available yet.")
+    elif stype == "Copy public":
+        st.caption("No public scenarios available yet.")
     pf = copy_src
 
-    st.markdown("---")
-    st.markdown("##### Optimization Mode")
+    st.markdown("**Optimization mode**")
     modes = ["Budget optimization", "Total sales target",
              "Incremental sales target", "Reference scenario", "Target ROI"]
     dm = modes.index(pf["mode"]) if pf and pf.get("mode") in modes else 0
-    mode = st.radio("Mode", modes, index=dm, key="_dm")
+    mode = st.radio("Mode", modes, index=dm, horizontal=True, key="_dm",
+                    label_visibility="collapsed")
+    tr = None
     if mode == "Budget optimization":
         budget = st.number_input("Budget ($)", value=float(pf["budget"] if pf else current_total),
                                  step=10000.0, format="%.0f", key="_db")
@@ -163,8 +207,6 @@ def _new_scenario_dialog():
     else:
         budget = current_total
 
-    st.markdown("---")
-    st.markdown("##### Time Period")
     t1, t2 = st.columns(2)
     with t1:
         ps = st.date_input("Start", value=pf.get("period_start", _data_min) if pf else _data_min,
@@ -173,28 +215,19 @@ def _new_scenario_dialog():
         pe = st.date_input("End", value=pf.get("period_end", _data_max) if pf else _data_max,
                            min_value=_data_min, max_value=_data_max, key="_dpe")
     dw = max(1, (pe - ps).days // 7)
-    st.caption(f"{_wl(ps)} — {_wl(pe)}  ({dw} weeks)")
+    st.caption(f"{_wl(ps)} — {_wl(pe)}  ·  {dw} weeks")
 
-    st.markdown("---")
-    st.markdown("##### Dimensions")
     dch = pf.get("selected_channels", channels) if pf else channels
     sel_ch = st.multiselect("Advertising channels", channels, default=dch, key="_dch")
-    st.caption(f"{len(sel_ch)} selected")
 
-    st.markdown(
-        "<style>#_dcreate > button { background:#4A6CF7 !important; color:white !important; "
-        "border:none !important; font-size:1rem !important; padding:0.6rem !important; "
-        "border-radius:10px !important; }"
-        "#_dcreate > button:hover { background:#3B5DE7 !important; }</style>",
-        unsafe_allow_html=True,
-    )
-    if st.button("Create Scenario", use_container_width=True, key="_dcreate"):
+    if st.button("Create scenario", use_container_width=True, type="primary", key="_dcreate"):
         sc = {
             "name": name, "mode": mode, "budget": budget,
             "period_start": ps, "period_end": pe, "n_weeks": dw,
             "selected_channels": sel_ch, "result": None,
-            "ref_start": ps - timedelta(weeks=52), "ref_end": pe - timedelta(weeks=52),
-            "target_roi": tr if mode == "Target ROI" else None,
+            "ref_start": ps - timedelta(weeks=52),
+            "ref_end": pe - timedelta(weeks=52),
+            "target_roi": tr,
         }
         st.session_state["_opt_scenarios"].append(sc)
         st.session_state["_opt_active_idx"] = len(st.session_state["_opt_scenarios"]) - 1
@@ -203,17 +236,27 @@ def _new_scenario_dialog():
 
 
 # ══════════════════════════════════════════════════════════════
-#  PAGE HEADER
+#  PAGE HEADER + SCENARIO TABS
 # ══════════════════════════════════════════════════════════════
 
-page_header("Media optimizer", "")
+page_header("Media optimizer", "Configure a scenario, then optimise budget allocation across channels.")
 
 scenarios = st.session_state["_opt_scenarios"]
 active_idx = st.session_state["_opt_active_idx"]
 
-# ── Scenario tabs row ──
+# Apply pending quick-selection BEFORE any slider renders
+if "_apply_pct" in st.session_state and active_idx is not None and active_idx < len(scenarios):
+    _pct = st.session_state.pop("_apply_pct")
+    _sc = scenarios[active_idx]
+    for _ch in _sc.get("selected_channels", channels):
+        _lo, _hi, _mn, _mx = _slider_range(_ch, _pct)
+        st.session_state[f"_lrng_{_ch}"] = (_lo, _hi)
+
 n_sc = len(scenarios)
-tab_cols = st.columns(min(n_sc + 1, 8))
+
+# Scenario tabs (horizontal)
+st.markdown('<div class="sc-tab-row">', unsafe_allow_html=True)
+tab_cols = st.columns(max(n_sc + 1, 2))
 for i in range(n_sc):
     with tab_cols[i]:
         is_act = (i == active_idx)
@@ -225,17 +268,17 @@ for i in range(n_sc):
         ):
             st.session_state["_opt_active_idx"] = i
             st.rerun()
-with tab_cols[min(n_sc, 7)]:
-    if st.button("+", key="_tab_add", use_container_width=True):
+with tab_cols[n_sc]:
+    if st.button("➕ New", key="_tab_add", use_container_width=True):
         st.session_state.pop("_opt_copy_from", None)
         _new_scenario_dialog()
+st.markdown("</div>", unsafe_allow_html=True)
 
-# ── Empty state ──
 if n_sc == 0:
     st.markdown(
         "<div style='text-align:center; padding:4rem 0; color:#94A3B8;'>"
         "<p style='font-size:1rem; color:#64748B;'>No scenarios yet. "
-        "Click <b>+</b> to create one.</p></div>",
+        "Click <b>➕ New</b> to create one.</p></div>",
         unsafe_allow_html=True,
     )
     st.stop()
@@ -247,189 +290,138 @@ if active_idx is None or active_idx >= n_sc:
 sc = scenarios[active_idx]
 
 # ══════════════════════════════════════════════════════════════
-#  TWO-PANEL LAYOUT:  left=config  |  right=results
+#  TWO-PANEL LAYOUT  (1 : 2  — more room for charts)
 # ══════════════════════════════════════════════════════════════
 
-left_col, right_col = st.columns([2, 3], gap="large")
+left_col, right_col = st.columns([1, 2], gap="large")
 
 # ─────────────────────────────────────────────────────────────
-#  LEFT PANEL — scenario config (editable inline)
+#  LEFT PANEL — scenario config
 # ─────────────────────────────────────────────────────────────
 with left_col:
-    # header with action buttons
-    lh1, lh2, lh3, lh4 = st.columns([3, 1, 1, 1])
-    with lh1:
-        new_name = st.text_input("Scenario", value=sc["name"], key="_sc_name",
-                                 label_visibility="collapsed")
-        if new_name != sc["name"]:
-            sc["name"] = new_name
-    with lh2:
-        if st.button("🗑", key="_sc_del", help="Delete scenario"):
-            scenarios.pop(active_idx)
-            st.session_state["_opt_active_idx"] = max(0, active_idx - 1) if scenarios else None
-            st.rerun()
-    with lh3:
-        if st.button("📋", key="_sc_copy", help="Copy scenario"):
-            st.session_state["_opt_copy_from"] = sc
-            _new_scenario_dialog()
-    with lh4:
-        if st.button("✏️", key="_sc_edit", help="Edit in dialog"):
-            st.session_state["_opt_copy_from"] = sc
-            _new_scenario_dialog()
+    with st.container(border=True):
+        # Name + action icons
+        h1, h2, h3 = st.columns([4, 1, 1])
+        with h1:
+            new_name = st.text_input(
+                "Scenario", value=sc["name"], key=f"_nm_{active_idx}",
+                label_visibility="collapsed",
+            )
+            if new_name != sc["name"]:
+                sc["name"] = new_name
+        with h2:
+            if st.button("📋", key="_sc_copy", help="Duplicate scenario", use_container_width=True):
+                st.session_state["_opt_copy_from"] = sc
+                _new_scenario_dialog()
+        with h3:
+            if st.button("🗑", key="_sc_del", help="Delete scenario", use_container_width=True):
+                scenarios.pop(active_idx)
+                st.session_state["_opt_active_idx"] = max(0, active_idx - 1) if scenarios else None
+                st.rerun()
 
-    st.markdown("---")
-
-    # Time period + budget
-    tp1, tp2 = st.columns(2)
-    with tp1:
-        st.markdown("<span style='color:#64748B; font-size:0.78rem; font-weight:600;'>Time period to optimize</span>",
-                    unsafe_allow_html=True)
-        ps = st.date_input("s", value=sc["period_start"], min_value=_data_min, max_value=_data_max,
-                           key="_lps", label_visibility="collapsed")
-        pe = st.date_input("e", value=sc["period_end"], min_value=_data_min, max_value=_data_max,
-                           key="_lpe", label_visibility="collapsed")
-        sc["period_start"] = ps
-        sc["period_end"] = pe
+    # Time & budget
+    with st.container(border=True):
+        st.markdown('<div class="cfg-label">Time period to optimize</div>', unsafe_allow_html=True)
+        tp1, tp2 = st.columns(2)
+        with tp1:
+            ps = st.date_input("Start", value=sc["period_start"], min_value=_data_min,
+                               max_value=_data_max, key="_lps", label_visibility="collapsed")
+        with tp2:
+            pe = st.date_input("End", value=sc["period_end"], min_value=_data_min,
+                               max_value=_data_max, key="_lpe", label_visibility="collapsed")
+        sc["period_start"], sc["period_end"] = ps, pe
         dw = max(1, (pe - ps).days // 7)
         sc["n_weeks"] = dw
-        st.caption(f"{_wl(ps)} > {_wl(pe)}")
-
-    with tp2:
-        st.markdown("<span style='color:#64748B; font-size:0.78rem; font-weight:600;'>Budget optimization</span>",
-                    unsafe_allow_html=True)
-        new_budget = st.number_input("b", value=float(sc["budget"]), step=10000.0, format="%.0f",
-                                     key="_lbudget", label_visibility="collapsed")
-        sc["budget"] = new_budget
-        st.caption("$")
-
-    ref_s = sc.get("ref_start", ps - timedelta(weeks=52))
-    ref_e = sc.get("ref_end", pe - timedelta(weeks=52))
-    st.markdown(
-        f"<span style='color:#64748B; font-size:0.78rem;'>Reference time period: "
-        f"<b>{_wl(ref_s)}</b> to <b>{_wl(ref_e)}</b></span>",
-        unsafe_allow_html=True,
-    )
-
-    st.markdown("---")
-
-    # Promo / Baseline scenario
-    pr1, pr2 = st.columns(2)
-    with pr1:
-        st.markdown("<span style='color:#F56565; font-size:0.78rem; font-weight:600;'>Promo scenario</span>",
-                    unsafe_allow_html=True)
-        st.selectbox("p", ["Last 12 weeks..."], key="_lpromo", label_visibility="collapsed")
-    with pr2:
-        st.markdown("<span style='color:#48BB78; font-size:0.78rem; font-weight:600;'>Baseline scenario</span>",
-                    unsafe_allow_html=True)
-        st.selectbox("b", ["Last 12 weeks..."], key="_lbase", label_visibility="collapsed")
-
-    st.markdown("---")
-
-    # Grouping
-    st.markdown("<span style='color:#64748B; font-size:0.78rem; font-weight:600;'>Grouping by</span>",
-                unsafe_allow_html=True)
-    st.caption("Advertising channel")
-
-    st.markdown("---")
-
-    # Quick selection
-    st.markdown("<span style='color:#64748B; font-size:0.78rem; font-weight:600;'>Apply quick selection to all</span>",
-                unsafe_allow_html=True)
-    pct_labels = {"Reset": 0, "+/-5%": 5, "+/-10%": 10, "+/-20%": 20, "+/-30%": 30, "Full Range": 100}
-    qc = st.columns(len(pct_labels))
-    for i, (lbl, pv) in enumerate(pct_labels.items()):
-        with qc[i]:
-            if st.button(lbl, key=f"_lq_{pv}", use_container_width=True):
-                st.session_state["_lqpct"] = pv
-
-    qr1, qr2, qr3 = st.columns([1, 1, 1])
-    with qr1:
-        st.caption("+/-")
-    with qr2:
-        custom_pct = st.number_input("c", min_value=0, max_value=200, value=0,
-                                     label_visibility="collapsed", key="_lcpct")
-    with qr3:
-        if st.button("Apply", key="_lqapply", use_container_width=True):
-            st.session_state["_lqpct"] = custom_pct
-
-    global_pct = st.session_state.get("_lqpct", 0)
-
-    st.markdown("---")
-
-    # Calendar weeks
-    st.caption(f"📅  Calendar weeks")
-
-    # Group by
-    st.markdown("<span style='color:#64748B; font-size:0.78rem; font-weight:600;'>Group by</span>",
-                unsafe_allow_html=True)
-    st.radio("gb", ["None", "Ad platform", "Advertising channel"],
-             horizontal=True, label_visibility="collapsed", key="_lgb")
-
-    st.markdown("---")
-
-    # Media investment budgets boundaries
-    st.markdown("<span style='color:#64748B; font-size:0.78rem; font-weight:600;'>"
-                "Media investment budgets boundaries</span>", unsafe_allow_html=True)
-
-    sel_ch = sc.get("selected_channels", channels)
-    sa_col, da_col = st.columns(2)
-    with sa_col:
-        if st.button("Select all", key="_lsall", use_container_width=True):
-            sc["selected_channels"] = channels
-            st.rerun()
-    with da_col:
-        if st.button("Deselect all", key="_ldall", use_container_width=True):
-            sc["selected_channels"] = []
-            st.rerun()
-
-    bounds = {}
-    for ch in sel_ch:
-        ci = channels.index(ch)
-        cs = float(current_spend[ci])
-        am = float(spec_max_map.get(ch, cs * 3))
-        if global_pct == 0:
-            dl, dh = cs, cs
-        elif global_pct >= 100:
-            dl = float(spec_min_map.get(ch, 0))
-            dh = am
-        else:
-            dl = max(cs * (1 - global_pct / 100), 0)
-            dh = cs * (1 + global_pct / 100)
-        sm = max(am, cs * 2, 1)
-        rng = st.slider(
-            ch, min_value=0.0, max_value=float(sm),
-            value=(float(dl), float(min(dh, sm))),
-            format="$%.0f", key=f"_lrng_{ch}",
+        st.markdown(
+            f'<div class="cfg-value" style="color:#4A6CF7;">📅 {_wl(ps)} → {_wl(pe)}  '
+            f'<span style="color:#64748B;">({dw} weeks)</span></div>',
+            unsafe_allow_html=True,
         )
-        bounds[ch] = (rng[0], rng[1])
-    sc["channel_bounds"] = bounds
 
-    st.caption(f"📅  Optimize: {dw} weeks")
+        st.markdown('<div class="cfg-label" style="margin-top:0.75rem;">Budget</div>',
+                    unsafe_allow_html=True)
+        new_budget = st.number_input(
+            "Budget", value=float(sc["budget"]), step=10000.0, format="%.0f",
+            key="_lbudget", label_visibility="collapsed",
+        )
+        sc["budget"] = new_budget
 
-    # Validity
-    valid = len(sel_ch) > 0 and sc["budget"] > 0
-    if valid:
-        st.success("Scenario is valid and can be optimized.")
-    else:
-        st.warning("Select at least one channel and set a budget.")
+        ref_s = sc.get("ref_start", ps - timedelta(weeks=52))
+        ref_e = sc.get("ref_end", pe - timedelta(weeks=52))
+        st.caption(f"Reference period: {_wl(ref_s)} → {_wl(ref_e)}")
 
-    st.markdown("---")
+    # Channel budget boundaries
+    with st.container(border=True):
+        st.markdown('<div class="cfg-label">Channel budget boundaries</div>',
+                    unsafe_allow_html=True)
+        st.caption("Apply a quick range to all channels:")
+
+        pct_opts = [("Fix", 0), ("±5%", 5), ("±10%", 10), ("±20%", 20), ("±30%", 30), ("Full", 100)]
+        qc = st.columns(len(pct_opts))
+        for i, (lbl, pv) in enumerate(pct_opts):
+            with qc[i]:
+                if st.button(lbl, key=f"_lq_{pv}", use_container_width=True):
+                    st.session_state["_apply_pct"] = pv
+                    st.rerun()
+
+        cpc1, cpc2 = st.columns([2, 1])
+        with cpc1:
+            custom_pct = st.number_input(
+                "Custom ± %", min_value=0, max_value=200, value=0,
+                key="_lcpct", label_visibility="collapsed", placeholder="Custom %",
+            )
+        with cpc2:
+            if st.button("Apply", key="_lqapply", use_container_width=True):
+                st.session_state["_apply_pct"] = int(custom_pct)
+                st.rerun()
+
+        st.markdown("")  # small spacer
+
+        # Channel selection
+        sel_ch = sc.get("selected_channels", channels)
+        sa_col, da_col = st.columns(2)
+        with sa_col:
+            if st.button("Select all", key="_lsall", use_container_width=True):
+                sc["selected_channels"] = channels
+                st.rerun()
+        with da_col:
+            if st.button("Clear all", key="_ldall", use_container_width=True):
+                sc["selected_channels"] = []
+                st.rerun()
+
+        if len(sel_ch) == 0:
+            st.caption("No channels selected.")
+        else:
+            st.caption(f"{len(sel_ch)} of {len(channels)} channels")
+
+        # Sliders — values come from session_state keys set by quick-select
+        bounds = {}
+        for ch in sel_ch:
+            key = f"_lrng_{ch}"
+            if key not in st.session_state:
+                lo, hi, _, _ = _slider_range(ch, 0)
+                st.session_state[key] = (lo, hi)
+            _, _, smn, smx = _slider_range(ch, 100)
+            rng = st.slider(
+                ch, min_value=smn, max_value=smx,
+                format="$%.0f", key=key,
+            )
+            bounds[ch] = (rng[0], rng[1])
+        sc["channel_bounds"] = bounds
 
     # Optimize buttons
-    ob1, ob2 = st.columns(2)
+    ob1, ob2 = st.columns([1, 2])
     with ob1:
-        if st.button("Optimize all", key="_loptall", use_container_width=True):
+        if st.button("Optimise all", key="_loptall", use_container_width=True):
             for s in scenarios:
                 s["result"] = _run_optimization(s)
             st.rerun()
     with ob2:
-        st.markdown(
-            "<style>#_lopt > button { background:#F56565 !important; color:white !important; "
-            "border:none !important; border-radius:8px !important; font-weight:600 !important; }"
-            "#_lopt > button:hover { background:#E53E3E !important; }</style>",
-            unsafe_allow_html=True,
-        )
-        if st.button("Optimize!", key="_lopt", use_container_width=True):
+        valid = len(sel_ch) > 0 and sc["budget"] > 0
+        if st.button(
+            "Optimise!", key="_lopt", use_container_width=True,
+            type="primary", disabled=not valid,
+        ):
             sc["result"] = _run_optimization(sc)
             st.rerun()
 
@@ -441,156 +433,178 @@ with right_col:
     result = sc.get("result")
 
     t_charts, t_table, t_ts, t_rc = st.tabs([
-        "Result Charts", "Result Table", "Timeseries", "Response curves",
+        "Result charts", "Result table", "Timeseries", "Response curves",
     ])
 
     if result is None:
         with t_charts:
             st.markdown(
-                "<div style='text-align:center; padding:4rem 0; color:#94A3B8;'>"
-                "<p style='font-size:1rem;'>No scenarios optimized or selected.</p></div>",
+                "<div style='text-align:center; padding:5rem 0; color:#94A3B8;'>"
+                "<div style='font-size:3rem; margin-bottom:0.5rem;'>📊</div>"
+                "<p style='font-size:1rem; color:#64748B;'>Configure the scenario on the left "
+                "and click <b>Optimise!</b> to see results.</p></div>",
                 unsafe_allow_html=True,
             )
-        st.stop()
+        with t_table:
+            st.caption("Run the optimiser to see the result table.")
+        with t_ts:
+            st.caption("Run the optimiser to see the time series view.")
+        with t_rc:
+            st.caption("Run the optimiser to see response curves.")
+    else:
+        total_budget = sc["budget"]
+        sel_channels = sc["selected_channels"]
 
-    total_budget = sc["budget"]
-    sel_channels = sc["selected_channels"]
+        curr_rev = float(result["current_revenue"].sum())
+        opt_rev = float(result["optimized_revenue"].sum())
+        uplift = opt_rev - curr_rev
+        uplift_pct = uplift / curr_rev * 100 if curr_rev > 0 else 0
+        fs_sum = float(result["current_spend"].sum())
+        os_sum = float(result["optimized_spend"].sum())
+        opt_roi = opt_rev / os_sum if os_sum > 0 else 0
+        cur_roi = curr_rev / fs_sum if fs_sum > 0 else 0
 
-    # ── KPI row (above tabs) ──
-    curr_rev = float(result["current_revenue"].sum())
-    opt_rev = float(result["optimized_revenue"].sum())
-    uplift = opt_rev - curr_rev
-    uplift_pct = uplift / curr_rev * 100 if curr_rev > 0 else 0
+        with t_charts:
+            k = st.columns(4)
+            k[0].metric("Current revenue", format_currency(curr_rev))
+            k[1].metric("Optimised revenue", format_currency(opt_rev))
+            k[2].metric("Uplift", format_currency(uplift), f"{uplift_pct:+.1f}%")
+            k[3].metric("Optimised ROI", f"{opt_roi:.2f}x", f"{(opt_roi - cur_roi):+.2f}x")
 
-    with t_charts:
-        k = st.columns(4)
-        k[0].metric("Current Revenue", format_currency(curr_rev))
-        k[1].metric("Optimised Revenue", format_currency(opt_rev))
-        k[2].metric("Revenue Uplift", format_currency(uplift), f"{uplift_pct:+.1f}%")
-        fs = result["current_spend"].values
-        opr = opt_rev / total_budget if total_budget > 0 else 0
-        cr = curr_rev / float(fs.sum()) if fs.sum() > 0 else 0
-        k[3].metric("Optimised ROI", f"{opr:.2f}x", f"{(opr - cr):+.2f}x")
+            st.markdown("##### Budget allocation — current vs optimised")
+            sr = result.sort_values("optimized_spend", ascending=True)
+            fig = go.Figure()
+            fig.add_trace(go.Bar(y=sr["channel"], x=sr["current_spend"], name="Current",
+                                 orientation="h", marker=dict(color="#CBD5E1"),
+                                 text=[format_currency(v) for v in sr["current_spend"]],
+                                 textposition="outside", textfont=dict(size=10)))
+            fig.add_trace(go.Bar(y=sr["channel"], x=sr["optimized_spend"], name="Optimised",
+                                 orientation="h", marker=dict(color="#4A6CF7"),
+                                 text=[format_currency(v) for v in sr["optimized_spend"]],
+                                 textposition="outside", textfont=dict(size=10)))
+            fig.update_layout(**CHART_LAYOUT, barmode="group",
+                              height=max(480, len(sel_channels) * 46),
+                              xaxis_title="Spend ($)",
+                              margin=dict(l=20, r=80, t=30, b=40))
+            st.plotly_chart(fig, use_container_width=True)
 
-        st.markdown("---")
+            st.markdown("##### Share of spend")
+            c1, c2 = st.columns(2)
+            with c1:
+                fp1 = go.Figure(data=[go.Pie(
+                    labels=result["channel"], values=result["current_spend"], hole=0.55,
+                    marker=dict(colors=COLORS[:len(result)]),
+                    textinfo="percent", textfont=dict(size=11),
+                )])
+                fp1.update_layout(**CHART_LAYOUT, title="Current", height=400,
+                                  margin=dict(l=10, r=10, t=50, b=10))
+                st.plotly_chart(fp1, use_container_width=True)
+            with c2:
+                fp2 = go.Figure(data=[go.Pie(
+                    labels=result["channel"], values=result["optimized_spend"], hole=0.55,
+                    marker=dict(colors=COLORS[:len(result)]),
+                    textinfo="percent", textfont=dict(size=11),
+                )])
+                fp2.update_layout(**CHART_LAYOUT, title="Optimised", height=400,
+                                  margin=dict(l=10, r=10, t=50, b=10))
+                st.plotly_chart(fp2, use_container_width=True)
 
-        st.markdown("#### Budget Allocation")
-        sr = result.sort_values("current_spend", ascending=True)
-        fig = go.Figure()
-        fig.add_trace(go.Bar(y=sr["channel"], x=sr["current_spend"], name="Current",
-                             orientation="h", marker=dict(color="rgba(74,108,247,0.55)")))
-        fig.add_trace(go.Bar(y=sr["channel"], x=sr["optimized_spend"], name="Optimised",
-                             orientation="h", marker=dict(color="rgba(72,187,120,0.55)")))
-        fig.update_layout(**CHART_LAYOUT, barmode="group",
-                          height=max(380, len(sel_channels) * 36), xaxis_title="Spend ($)")
-        st.plotly_chart(fig, use_container_width=True)
+        with t_table:
+            disp = result.copy()
+            disp["current_share"] = disp["current_spend"] / disp["current_spend"].sum() * 100
+            disp["opt_share"] = disp["optimized_spend"] / disp["optimized_spend"].sum() * 100
+            disp = disp.rename(columns={
+                "channel": "Channel", "current_spend": "Current Spend",
+                "optimized_spend": "Optimised Spend", "spend_change": "Δ Spend ($)",
+                "spend_change_pct": "Δ Spend (%)", "current_revenue": "Current Revenue",
+                "optimized_revenue": "Optimised Revenue", "revenue_change": "Δ Revenue",
+                "current_roi": "Current ROI", "optimized_roi": "Optimised ROI",
+                "current_share": "Current %", "opt_share": "Optimised %",
+            })
+            st.dataframe(disp, use_container_width=True, hide_index=True, height=420)
 
-        c1, c2 = st.columns(2)
-        with c1:
-            fp1 = go.Figure(data=[go.Pie(labels=result["channel"], values=result["current_spend"],
-                                         hole=0.45, marker=dict(colors=COLORS[:len(result)]),
-                                         textinfo="label+percent", textfont=dict(size=8))])
-            fp1.update_layout(**CHART_LAYOUT, title="Current", height=320)
-            st.plotly_chart(fp1, use_container_width=True)
-        with c2:
-            fp2 = go.Figure(data=[go.Pie(labels=result["channel"], values=result["optimized_spend"],
-                                         hole=0.45, marker=dict(colors=COLORS[:len(result)]),
-                                         textinfo="label+percent", textfont=dict(size=8))])
-            fp2.update_layout(**CHART_LAYOUT, title="Optimised", height=320)
-            st.plotly_chart(fp2, use_container_width=True)
+            ic, dc = st.columns(2)
+            with ic:
+                inc = result[result["spend_change"] > 1].sort_values("spend_change", ascending=False)
+                st.markdown(
+                    '<div style="background:#F0FFF4; border:1px solid #C6F6D5; '
+                    'border-radius:10px; padding:1rem;">'
+                    '<h5 style="color:#276749;margin-top:0;margin-bottom:0.5rem;">↑ Increase</h5>',
+                    unsafe_allow_html=True)
+                for _, r in inc.iterrows():
+                    st.markdown(f"**{r['channel']}**: {format_currency(r['current_spend'])} → "
+                                f"{format_currency(r['optimized_spend'])} ({r['spend_change_pct']:+.0f}%)")
+                if len(inc) == 0:
+                    st.markdown("*None*")
+                st.markdown("</div>", unsafe_allow_html=True)
+            with dc:
+                dec_df = result[result["spend_change"] < -1].sort_values("spend_change")
+                st.markdown(
+                    '<div style="background:#FFF5F5; border:1px solid #FED7D7; '
+                    'border-radius:10px; padding:1rem;">'
+                    '<h5 style="color:#9B2C2C;margin-top:0;margin-bottom:0.5rem;">↓ Decrease</h5>',
+                    unsafe_allow_html=True)
+                for _, r in dec_df.iterrows():
+                    st.markdown(f"**{r['channel']}**: {format_currency(r['current_spend'])} → "
+                                f"{format_currency(r['optimized_spend'])} ({r['spend_change_pct']:+.0f}%)")
+                if len(dec_df) == 0:
+                    st.markdown("*None*")
+                st.markdown("</div>", unsafe_allow_html=True)
 
-    with t_table:
-        disp = result.copy()
-        disp["current_share"] = disp["current_spend"] / disp["current_spend"].sum() * 100
-        disp["opt_share"] = disp["optimized_spend"] / disp["optimized_spend"].sum() * 100
-        disp = disp.rename(columns={
-            "channel": "Channel", "current_spend": "Current Spend",
-            "optimized_spend": "Optimised Spend", "spend_change": "Δ Spend ($)",
-            "spend_change_pct": "Δ Spend (%)", "current_revenue": "Current Revenue",
-            "optimized_revenue": "Optimised Revenue", "revenue_change": "Δ Revenue",
-            "current_roi": "Current ROI", "optimized_roi": "Optimised ROI",
-            "current_share": "Current %", "opt_share": "Optimised %",
-        })
-        st.dataframe(disp, use_container_width=True, hide_index=True)
+            st.download_button("Export CSV", disp.to_csv(index=False),
+                               "optimisation_plan.csv", "text/csv")
 
-        ic, dc = st.columns(2)
-        with ic:
-            inc = result[result["spend_change"] > 1].sort_values("spend_change", ascending=False)
-            st.markdown(
-                '<div style="background:#F0FFF4; border:1px solid #C6F6D5; '
-                'border-radius:10px; padding:0.8rem;">'
-                '<h5 style="color:#276749;margin-top:0;">Increase</h5>',
-                unsafe_allow_html=True)
-            for _, r in inc.iterrows():
-                st.markdown(f"**{r['channel']}**: {format_currency(r['current_spend'])} → "
-                            f"{format_currency(r['optimized_spend'])} ({r['spend_change_pct']:+.0f}%)")
-            if len(inc) == 0:
-                st.markdown("*None*")
-            st.markdown("</div>", unsafe_allow_html=True)
-        with dc:
-            dec_df = result[result["spend_change"] < -1].sort_values("spend_change")
-            st.markdown(
-                '<div style="background:#FFF5F5; border:1px solid #FED7D7; '
-                'border-radius:10px; padding:0.8rem;">'
-                '<h5 style="color:#9B2C2C;margin-top:0;">Decrease</h5>',
-                unsafe_allow_html=True)
-            for _, r in dec_df.iterrows():
-                st.markdown(f"**{r['channel']}**: {format_currency(r['current_spend'])} → "
-                            f"{format_currency(r['optimized_spend'])} ({r['spend_change_pct']:+.0f}%)")
-            if len(dec_df) == 0:
-                st.markdown("*None*")
-            st.markdown("</div>", unsafe_allow_html=True)
+        with t_ts:
+            st.markdown("##### Weekly budget pacing")
+            pw = st.slider("Planning weeks", 4, 52, sc.get("n_weeks", 12), key="_wpace")
+            if decomp is not None and len(decomp) >= pw:
+                bl = decomp["baseline"].values[:pw]
+                si = bl / bl.mean() if bl.mean() > 0 else np.ones(pw)
+            else:
+                si = 1 + 0.15 * np.sin(2 * np.pi * np.arange(pw) / 52)
 
-        st.download_button("Export CSV", disp.to_csv(index=False), "optimisation_plan.csv", "text/csv")
+            rows = []
+            for _, r in result.iterrows():
+                wb = r["optimized_spend"] / 52
+                for w in range(pw):
+                    rows.append({"week": w + 1, "channel": r["channel"], "spend": wb * si[w]})
+            wpiv = pd.DataFrame(rows).pivot(index="week", columns="channel", values="spend")
+            fwk = go.Figure()
+            for i, ch in enumerate(result["channel"]):
+                if ch in wpiv.columns:
+                    fwk.add_trace(go.Bar(x=wpiv.index, y=wpiv[ch], name=ch,
+                                         marker=dict(color=COLORS[i % len(COLORS)])))
+            fwk.update_layout(**CHART_LAYOUT, barmode="stack",
+                              xaxis_title="Week", yaxis_title="Spend ($)", height=480)
+            st.plotly_chart(fwk, use_container_width=True)
 
-    with t_ts:
-        st.markdown("#### Weekly Budget Pacing")
-        pw = st.slider("Planning weeks", 4, 52, sc.get("n_weeks", 12), key="_wpace")
-        if decomp is not None and len(decomp) >= pw:
-            bl = decomp["baseline"].values[:pw]
-            si = bl / bl.mean() if bl.mean() > 0 else np.ones(pw)
-        else:
-            si = 1 + 0.15 * np.sin(2 * np.pi * np.arange(pw) / 52)
-
-        rows = []
-        for _, r in result.iterrows():
-            wb = r["optimized_spend"] / 52
-            for w in range(pw):
-                rows.append({"week": w + 1, "channel": r["channel"], "spend": wb * si[w]})
-        wpiv = pd.DataFrame(rows).pivot(index="week", columns="channel", values="spend")
-        fwk = go.Figure()
-        for i, ch in enumerate(result["channel"]):
-            if ch in wpiv.columns:
-                fwk.add_trace(go.Bar(x=wpiv.index, y=wpiv[ch], name=ch,
-                                     marker=dict(color=COLORS[i % len(COLORS)])))
-        fwk.update_layout(**CHART_LAYOUT, barmode="stack", xaxis_title="Week",
-                          yaxis_title="Spend ($)", height=420)
-        st.plotly_chart(fwk, use_container_width=True)
-
-    with t_rc:
-        if response is not None:
-            avail = [ch for ch in response["channel"].unique().tolist() if ch in sel_channels]
-            sel = st.multiselect("Channels", avail, default=avail[:4], key="_rcsel")
-            if sel:
-                osm = dict(zip(result["channel"], result["optimized_spend"]))
-                frc = go.Figure()
-                for i, ch in enumerate(sel):
-                    cd = response[response["channel"] == ch]
-                    clr = COLORS[i % len(COLORS)]
-                    frc.add_trace(go.Scatter(x=cd["spend_level"], y=cd["incremental_revenue"],
-                                             mode="lines", name=ch, line=dict(color=clr, width=2.5)))
-                    cs_v = float(cd["current_spend"].iloc[0])
-                    cr_v = float(cd["current_revenue"].iloc[0])
-                    frc.add_trace(go.Scatter(x=[cs_v], y=[cr_v], mode="markers", showlegend=False,
-                                             marker=dict(size=12, color=clr, symbol="diamond",
-                                                         line=dict(width=2, color="white"))))
-                    os_v = osm.get(ch, cs_v)
-                    or_v = float(np.interp(os_v, cd["spend_level"], cd["incremental_revenue"]))
-                    frc.add_trace(go.Scatter(x=[os_v], y=[or_v], mode="markers", showlegend=False,
-                                             marker=dict(size=12, color=clr, symbol="circle",
-                                                         line=dict(width=2, color="white"))))
-                frc.update_layout(**CHART_LAYOUT, xaxis_title="Spend ($)",
-                                  yaxis_title="Incremental Revenue ($)", height=460)
-                st.plotly_chart(frc, use_container_width=True)
-        else:
-            st.info("Response curve data not available.")
+        with t_rc:
+            if response is not None:
+                avail = [ch for ch in response["channel"].unique().tolist() if ch in sel_channels]
+                sel = st.multiselect("Channels", avail, default=avail[:4], key="_rcsel")
+                if sel:
+                    osm = dict(zip(result["channel"], result["optimized_spend"]))
+                    frc = go.Figure()
+                    for i, ch in enumerate(sel):
+                        cd = response[response["channel"] == ch]
+                        clr = COLORS[i % len(COLORS)]
+                        frc.add_trace(go.Scatter(
+                            x=cd["spend_level"], y=cd["incremental_revenue"],
+                            mode="lines", name=ch, line=dict(color=clr, width=2.5)))
+                        cs_v = float(cd["current_spend"].iloc[0])
+                        cr_v = float(cd["current_revenue"].iloc[0])
+                        frc.add_trace(go.Scatter(
+                            x=[cs_v], y=[cr_v], mode="markers", showlegend=False,
+                            marker=dict(size=12, color=clr, symbol="diamond",
+                                        line=dict(width=2, color="white"))))
+                        os_v = osm.get(ch, cs_v)
+                        or_v = float(np.interp(os_v, cd["spend_level"], cd["incremental_revenue"]))
+                        frc.add_trace(go.Scatter(
+                            x=[os_v], y=[or_v], mode="markers", showlegend=False,
+                            marker=dict(size=12, color=clr, symbol="circle",
+                                        line=dict(width=2, color="white"))))
+                    frc.update_layout(**CHART_LAYOUT, xaxis_title="Spend ($)",
+                                      yaxis_title="Incremental revenue ($)", height=520)
+                    st.plotly_chart(frc, use_container_width=True)
+            else:
+                st.info("Response curve data not available.")
