@@ -511,7 +511,7 @@ with right_col:
                     textinfo="percent", textfont=dict(size=11),
                 )])
                 fp1.update_layout(**layout, title="Current", height=400,
-                                  margin=dict(l=10, r=10, t=50, b=10))
+                                  )
                 st.plotly_chart(fp1, use_container_width=True)
             with c2:
                 fp2 = go.Figure(data=[go.Pie(
@@ -520,7 +520,7 @@ with right_col:
                     textinfo="percent", textfont=dict(size=11),
                 )])
                 fp2.update_layout(**layout, title="Optimised", height=400,
-                                  margin=dict(l=10, r=10, t=50, b=10))
+                                  )
                 st.plotly_chart(fp2, use_container_width=True)
 
         with t_table:
