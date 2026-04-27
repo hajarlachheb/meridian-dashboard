@@ -510,7 +510,7 @@ with right_col:
                     marker=dict(colors=COLORS[:len(result)]),
                     textinfo="percent", textfont=dict(size=11),
                 )])
-                fp1.update_layout(**CHART_LAYOUT, title="Current", height=400,
+                fp1.update_layout(**layout, title="Current", height=400,
                                   margin=dict(l=10, r=10, t=50, b=10))
                 st.plotly_chart(fp1, use_container_width=True)
             with c2:
@@ -519,7 +519,7 @@ with right_col:
                     marker=dict(colors=COLORS[:len(result)]),
                     textinfo="percent", textfont=dict(size=11),
                 )])
-                fp2.update_layout(**CHART_LAYOUT, title="Optimised", height=400,
+                fp2.update_layout(**layout, title="Optimised", height=400,
                                   margin=dict(l=10, r=10, t=50, b=10))
                 st.plotly_chart(fp2, use_container_width=True)
 
