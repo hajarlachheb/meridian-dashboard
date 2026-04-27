@@ -484,7 +484,7 @@ with right_col:
             k[1].metric("Optimised revenue", format_currency(opt_rev))
             k[2].metric("Uplift", format_currency(uplift), f"{uplift_pct:+.1f}%")
             k[3].metric("Optimised ROI", f"{opt_roi:.2f}x", f"{(opt_roi - cur_roi):+.2f}x")
-
+            layout = {**CHART_LAYOUT, "margin": dict(l=20, r=80, t=30, b=40)}
             st.markdown("##### Budget allocation — current vs optimised")
             sr = result.sort_values("optimized_spend", ascending=True)
             fig = go.Figure()
@@ -496,10 +496,10 @@ with right_col:
                                  orientation="h", marker=dict(color="#4A6CF7"),
                                  text=[format_currency(v) for v in sr["optimized_spend"]],
                                  textposition="outside", textfont=dict(size=10)))
-            fig.update_layout(**CHART_LAYOUT, barmode="group",
+            fig.update_layout(**layout, barmode="group",
                               height=max(480, len(sel_channels) * 46),
                               xaxis_title="Spend ($)",
-                              margin=dict(l=20, r=80, t=30, b=40))
+                            )
             st.plotly_chart(fig, use_container_width=True)
 
             st.markdown("##### Share of spend")
